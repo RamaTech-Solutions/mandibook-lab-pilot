@@ -46,6 +46,15 @@ export async function requireOwner() {
   return ctx;
 }
 
+export async function getMunimInviteForEmail(email: string) {
+  return prisma.munimInvite.findFirst({
+    where: {
+      email: { equals: email.trim().toLowerCase(), mode: "insensitive" },
+    },
+    include: { firm: true },
+  });
+}
+
 export async function getMunimInviteForPhone(phone: string) {
   const normalized = phone.replace(/\D/g, "").slice(-10);
   return prisma.munimInvite.findFirst({

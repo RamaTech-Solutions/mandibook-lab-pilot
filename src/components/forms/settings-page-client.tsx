@@ -20,7 +20,7 @@ type Firm = {
   defaultCommissionRate: { toString(): string };
 };
 
-type Invite = { id: string; fullName: string; phone: string };
+type Invite = { id: string; fullName: string; email: string };
 
 export function SettingsPageClient({
   firm,
@@ -122,9 +122,18 @@ export function SettingsPageClient({
                   <Input id="fullName" name="fullName" required />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="munimPhone">Munim Phone</Label>
-                  <Input id="munimPhone" name="phone" maxLength={10} required placeholder="9876543210" />
+                  <Label htmlFor="munimEmail">Munim Email</Label>
+                  <Input
+                    id="munimEmail"
+                    name="email"
+                    type="email"
+                    required
+                    placeholder="munim@email.com"
+                  />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Munim isi email se OTP login karega
+                </p>
                 <Button type="submit" variant="secondary" disabled={loading}>
                   Invite Munim
                 </Button>
@@ -134,7 +143,7 @@ export function SettingsPageClient({
                   <p className="text-sm font-medium">Pending Invites</p>
                   {invites.map((i) => (
                     <p key={i.id} className="text-sm text-muted-foreground">
-                      {i.fullName} — {i.phone}
+                      {i.fullName} — {i.email}
                     </p>
                   ))}
                 </div>

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const emailSchema = z.string().email("Valid email required");
+
 export const phoneSchema = z
   .string()
   .min(10, "Phone number required")
@@ -51,7 +53,7 @@ export const paymentSchema = z.object({
 
 export const munimInviteSchema = z.object({
   fullName: z.string().min(2, "Name required"),
-  phone: phoneSchema,
+  email: emailSchema,
 });
 
 export type FirmInput = z.infer<typeof firmSchema>;

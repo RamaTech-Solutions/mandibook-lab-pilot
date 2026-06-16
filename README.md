@@ -8,7 +8,7 @@ Manage Kisan ledger, Vyapari ledger, mandi transactions, commission, deductions,
 
 - Next.js 15 (App Router)
 - TypeScript · Tailwind CSS · shadcn-style UI
-- Supabase (Phone OTP Auth + PostgreSQL)
+- Supabase (Email OTP Auth for pilot + PostgreSQL)
 - Prisma ORM
 - Vercel deployment
 
@@ -20,7 +20,6 @@ npm install
 cp .env.example .env.local
 # Fill in Supabase keys and database URLs
 npm run db:migrate:deploy
-npm run db:seed
 npm run dev
 ```
 
@@ -35,19 +34,32 @@ Open [http://localhost:3000](http://localhost:3000)
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Legacy anon key (optional if publishable key is set) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key (seed/admin only, never expose to client) |
 | `DATABASE_URL` | Pooled connection (port 6543, `?pgbouncer=true`) |
-| `DIRECT_URL` | Direct connection (port 5432) for migrations |
+| `DIRECT_URL` | Session pooler or direct (port 5432) for migrations |
+| `NEXT_PUBLIC_AUTH_PHONE_ENABLED` | Set `true` when Twilio phone OTP is ready (default: `false`) |
 
-## Supabase setup
+## Supabase setup (Email OTP pilot)
 
 1. Create a project at [supabase.com](https://supabase.com)
-2. **Authentication → Providers → Phone**: enable Phone auth
-3. Configure SMS provider (Twilio recommended for India):
-   - Supabase Dashboard → Project Settings → Auth → SMS
-   - Add Twilio Account SID, Auth Token, Message Service SID
-4. Copy API keys and database connection strings to `.env.local`
-5. **Auth → URL Configuration**: add redirect URL:
-   - `http://localhost:3000/auth/callback` (dev)
-   - `https://your-app.vercel.app/auth/callback` (prod)
+2. **Authentication → Providers → Email** → Enable
+3. For faster pilot testing, consider disabling **Confirm email** (OTP only)
+4. **Auth → URL Configuration**:
+   - Site URL: your Vercel URL or `http://localhost:3000`
+   - Redirect URLs: `http://localhost:3000/auth/callback` and `https://your-app.vercel.app/auth/callback`
+5. Copy API keys and database connection strings to `.env.local`
+
+### Email deliverability
+
+- Supabase built-in email works for pilot but is rate-limited on free tier (~2–4/hr)
+- For reliable OTP delivery: **Project Settings → Auth → SMTP** (Resend, SendGrid, etc.)
+- Ask pilot users to check spam folder
+
+### Phone OTP (later, optional)
+
+When Twilio is ready:
+
+1. **Authentication → Providers → Phone** → Enable
+2. Configure SMS in **Project Settings → Auth → SMS**
+3. Set `NEXT_PUBLIC_AUTH_PHONE_ENABLED=true` in Vercel and `.env.local`
 
 ## Database
 
@@ -63,21 +75,11 @@ npm run db:studio            # Prisma Studio
 
 If migrate fails, see [docs/DATABASE-SETUP.md](docs/DATABASE-SETUP.md) (connection strings + SQL Editor fallback).
 
-### Seed data
-
-- 1 firm: Sharma Adat Agency (Azadpur Mandi)
-- 2 kisans, 2 vyaparis
-- 3 commodities (Aloo, Pyaz, Tamatar)
-- 3 sample transactions with ledger entries
-- 2 sample payments
-
-> Seed uses placeholder `userId`. After your first OTP login, complete onboarding to create your real firm, or update seed user ID to match your Supabase auth user.
-
 ## Vercel deployment
 
-1. Push `mandibook-lab` to GitHub (separate repo recommended)
+1. Push `mandibook-lab` to GitHub
 2. Import in Vercel → Framework: Next.js
-3. Add all env vars from `.env.example`
+3. Add all env vars from `.env.example` (including `NEXT_PUBLIC_AUTH_PHONE_ENABLED=false`)
 4. Build command: `prisma generate && next build` (default via `package.json`)
 5. Deploy and add production URL to Supabase Auth redirect allowlist
 
@@ -85,8 +87,8 @@ If migrate fails, see [docs/DATABASE-SETUP.md](docs/DATABASE-SETUP.md) (connecti
 
 | Route | Purpose |
 |-------|---------|
-| `/login` | Phone OTP login |
-| `/onboarding` | Firm setup (owner) or Munim join |
+| `/login` | Email OTP login (phone when Twilio enabled) |
+| `/onboarding` | Firm setup (owner) or Munim join by email |
 | `/dashboard` | Today's stats + quick actions |
 | `/kisan` | Kisan list + ledger |
 | `/vyapari` | Vyapari list + ledger |
@@ -94,7 +96,7 @@ If migrate fails, see [docs/DATABASE-SETUP.md](docs/DATABASE-SETUP.md) (connecti
 | `/transactions/new` | Record sale (primary UX) |
 | `/payments` | Record jama/payment |
 | `/reports/daily-closing` | Aaj ka Closing |
-| `/settings` | Firm settings, Munim invite |
+| `/settings` | Firm settings, Munim invite by email |
 
 ## Ledger rules
 
@@ -103,15 +105,15 @@ If migrate fails, see [docs/DATABASE-SETUP.md](docs/DATABASE-SETUP.md) (connecti
 - **Payment to Kisan**: DEBIT
 - **Payment from Vyapari**: CREDIT
 
-## Pilot checklist
+## Pilot checklist (Email OTP)
 
-1. Configure Supabase Phone OTP with SMS
-2. Deploy to Vercel
-3. Owner completes onboarding on phone
-4. Add 2–3 kisans, vyaparis, maal
-5. Record test sale → verify ledger + WhatsApp share
-6. Invite Munim via Settings
-7. Hand to 2–3 real adatiyas for 15–30 day pilot
+1. Enable Supabase Email provider + set Site URL to Vercel domain
+2. Deploy to Vercel with env vars
+3. Owner: `/login` → email OTP → onboarding → dashboard
+4. Add kisans, vyaparis, maal, record a test sale
+5. Settings → invite Munim by **email**
+6. Munim: login with invited email → join firm → use app
+7. (Later) Enable Twilio + `NEXT_PUBLIC_AUTH_PHONE_ENABLED=true` for phone login
 
 ## License
 

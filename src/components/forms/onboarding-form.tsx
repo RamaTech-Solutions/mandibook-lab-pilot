@@ -40,8 +40,9 @@ export function OnboardingForm({ defaultPhone }: { defaultPhone?: string }) {
             <Input id="ownerName" name="ownerName" required placeholder="Ramesh Sharma" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="phone">Phone *</Label>
+            <Label htmlFor="phone">Dukan Phone *</Label>
             <Input id="phone" name="phone" required defaultValue={defaultPhone} placeholder="9876543210" maxLength={10} />
+            <p className="text-xs text-muted-foreground">Business contact — login email alag hai</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="address">Address</Label>

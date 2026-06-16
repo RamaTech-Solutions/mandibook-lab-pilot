@@ -74,6 +74,11 @@ export async function joinAsMunim(inviteId: string) {
 
   if (!invite) return { error: "Invite not found" };
 
+  const userEmail = user.email?.trim().toLowerCase() ?? "";
+  if (!userEmail || userEmail !== invite.email.trim().toLowerCase()) {
+    return { error: "Yeh invite aapke login email se match nahi karta" };
+  }
+
   const existing = await prisma.profile.findUnique({ where: { userId: user.id } });
   if (existing) redirect("/dashboard");
 
@@ -133,21 +138,23 @@ export async function inviteMunim(formData: FormData) {
 
   const parsed = munimInviteSchema.safeParse({
     fullName: formData.get("fullName"),
-    phone: formData.get("phone"),
+    email: formData.get("email"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.errors[0]?.message ?? "Invalid input" };
   }
 
+  const normalizedEmail = parsed.data.email.trim().toLowerCase();
+
   await prisma.munimInvite.upsert({
     where: {
-      firmId_phone: { firmId, phone: parsed.data.phone },
+      firmId_email: { firmId, email: normalizedEmail },
     },
     create: {
       firmId,
       fullName: parsed.data.fullName,
-      phone: parsed.data.phone,
+      email: normalizedEmail,
     },
     update: {
       fullName: parsed.data.fullName,
@@ -160,8 +167,8 @@ export async function inviteMunim(formData: FormData) {
       userId: user.id,
       action: "INVITE",
       entityType: "munim_invite",
-      entityId: parsed.data.phone,
-      newValues: parsed.data,
+      entityId: normalizedEmail,
+      newValues: { ...parsed.data, email: normalizedEmail },
     },
   });
 

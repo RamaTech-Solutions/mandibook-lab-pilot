@@ -95,12 +95,13 @@ model MunimInvite {
   id        String   @id @default(cuid())
   firmId    String   @map("firm_id")
   fullName  String   @map("full_name")
-  phone     String
+  email     String
+  phone     String?
   createdAt DateTime @default(now()) @map("created_at")
 
   firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
 
-  @@unique([firmId, phone])
+  @@unique([firmId, email])
   @@map("munim_invites")
 }
 
