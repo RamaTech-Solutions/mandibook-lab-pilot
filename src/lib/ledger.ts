@@ -52,7 +52,14 @@ export function balanceLabel(partyType: PartyType, balance: Decimal): string {
 
 export function runningBalances(
   partyType: PartyType,
-  entries: Array<LedgerEntryLike & { id: string; entryDate: Date; description?: string | null }>,
+  entries: Array<
+    LedgerEntryLike & {
+      id: string;
+      entryDate: Date;
+      description?: string | null;
+      entryType?: string;
+    }
+  >,
   openingBalance: Decimal | number | string,
   balanceType: BalanceType
 ): Array<(typeof entries)[0] & { runningBalance: Decimal }> {

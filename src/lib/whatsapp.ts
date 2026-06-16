@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import { formatINR, formatDate, UNIT_LABELS } from "./format";
 
 export function buildWhatsAppUrl(phone: string | null | undefined, text: string): string {
@@ -87,7 +88,9 @@ export function buildTransactionReceipt(params: {
   date: Date;
   firm: FirmInfo;
 }): string {
-  const katauti = new DecimalSafe(params.commissionAmount).plus(params.deductions).toString();
+  const katauti = new Decimal(params.commissionAmount)
+    .plus(params.deductions)
+    .toFixed(2);
 
   return [
     `Mandi Sale Receipt`,
@@ -134,16 +137,4 @@ export function buildDailyClosing(params: {
     `Total Kisan Baki: ${formatINR(params.totalKisanBaki)}`,
     `Total Vyapari Baki: ${formatINR(params.totalVyapariBaki)}`,
   ].join("\n");
-}
-
-function DecimalSafe(n: string | number) {
-  return {
-    plus(other: string | number) {
-      return {
-        toString() {
-          return (parseFloat(String(n)) + parseFloat(String(other))).toFixed(2);
-        },
-      };
-    },
-  };
 }

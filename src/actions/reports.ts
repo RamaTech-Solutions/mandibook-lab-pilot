@@ -81,7 +81,7 @@ export async function getDailyClosing(dateStr?: string) {
   ]);
 
   const sum = (items: { toString(): string }[]) =>
-    items.reduce((acc, i) => acc.plus(i.toString()), new Decimal(0));
+    items.reduce<Decimal>((acc, i) => acc.plus(i.toString()), new Decimal(0));
 
   let totalKisanBaki = new Decimal(0);
   for (const k of kisans) {
