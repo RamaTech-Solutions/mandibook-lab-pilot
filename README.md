@@ -19,7 +19,7 @@ cd mandibook-lab
 npm install
 cp .env.example .env.local
 # Fill in Supabase keys and database URLs
-npx prisma migrate dev --name init
+npm run db:migrate:deploy
 npm run db:seed
 npm run dev
 ```
@@ -31,7 +31,8 @@ Open [http://localhost:3000](http://localhost:3000)
 | Variable | Description |
 |----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (safe for client) |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key (`sb_publishable_...`) from dashboard |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Legacy anon key (optional if publishable key is set) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key (seed/admin only, never expose to client) |
 | `DATABASE_URL` | Pooled connection (port 6543, `?pgbouncer=true`) |
 | `DIRECT_URL` | Direct connection (port 5432) for migrations |
@@ -51,10 +52,16 @@ Open [http://localhost:3000](http://localhost:3000)
 ## Database
 
 ```bash
-npm run db:migrate   # Apply migrations
-npm run db:seed      # Demo firm, kisans, vyaparis, transactions
-npm run db:studio    # Prisma Studio
+npm install                  # Required first — installs Prisma 6 from package.json
+npm run db:migrate:deploy    # Apply migrations to Supabase (production)
+npm run db:migrate           # Create new migrations (local dev only)
+npm run db:seed              # Demo data (optional — skip for fresh adatiya onboarding)
+npm run db:studio            # Prisma Studio
 ```
+
+**Important:** Do not run bare `npx prisma` — it may install Prisma 7 and fail. Use `npm run db:migrate:deploy` after `npm install`.
+
+If migrate fails, see [docs/DATABASE-SETUP.md](docs/DATABASE-SETUP.md) (connection strings + SQL Editor fallback).
 
 ### Seed data
 
