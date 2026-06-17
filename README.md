@@ -46,6 +46,7 @@ Open [http://localhost:3000](http://localhost:3000)
    - Site URL: your Vercel URL or `http://localhost:3000`
    - Redirect URLs: `http://localhost:3000/auth/callback` and `https://your-app.vercel.app/auth/callback`
 5. Copy API keys and database connection strings to `.env.local`
+6. **Email template (required for OTP):** See [docs/SUPABASE-EMAIL-TEMPLATE.md](docs/SUPABASE-EMAIL-TEMPLATE.md) — default Supabase email sends a magic link only; add `{{ .Token }}` for 6-digit OTP
 
 ### Email deliverability
 

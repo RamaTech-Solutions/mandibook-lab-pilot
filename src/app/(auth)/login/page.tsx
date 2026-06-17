@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { isPhoneAuthEnabled } from "@/lib/auth-config";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,8 @@ import { toast } from "sonner";
 type AuthMethod = "email" | "phone";
 type Step = "input" | "otp";
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
   const [method, setMethod] = useState<AuthMethod>("email");
   const [step, setStep] = useState<Step>("input");
   const [email, setEmail] = useState("");
@@ -21,6 +23,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const fullPhone = `+91${phone.replace(/\D/g, "").slice(-10)}`;
+
+  useEffect(() => {
+    if (searchParams.get("error") === "auth") {
+      toast.error("Login link expire ho gaya ya invalid hai — dubara OTP maangein");
+    }
+  }, [searchParams]);
 
   async function sendEmailOtp(e: React.FormEvent) {
     e.preventDefault();
@@ -32,13 +40,17 @@ export default function LoginPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
     setLoading(false);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success("OTP email bhej diya gaya — inbox/spam check karein");
+    toast.success("Email bhej diya — 6-digit code enter karein ya email link par click karein");
     setStep("otp");
   }
 
@@ -155,7 +167,12 @@ export default function LoginPage() {
 
         {method === "email" && step === "otp" && (
           <form onSubmit={verifyEmailOtp} className="space-y-4">
-            <p className="text-sm text-muted-foreground">OTP bheja gaya: {email}</p>
+            <p className="text-sm text-muted-foreground">
+              Code bheja gaya: <strong>{email}</strong>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Email mein 6-digit code dikhega. Agar sirf link aaya ho to Supabase email template update karein (README dekhein).
+            </p>
             <div className="space-y-2">
               <Label htmlFor="emailOtp">OTP</Label>
               <Input
@@ -227,5 +244,13 @@ export default function LoginPage() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }
