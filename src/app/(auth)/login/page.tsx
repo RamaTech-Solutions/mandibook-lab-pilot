@@ -13,6 +13,21 @@ import { toast } from "sonner";
 type AuthMethod = "email" | "phone";
 type Step = "input" | "otp";
 
+const EMAIL_OTP_MIN = 6;
+const EMAIL_OTP_MAX = 10;
+
+function isValidEmailOtpLength(token: string) {
+  return token.length >= EMAIL_OTP_MIN && token.length <= EMAIL_OTP_MAX;
+}
+
+function formatOtpError(message: string) {
+  const lower = message.toLowerCase();
+  if (lower.includes("expired") || lower.includes("invalid")) {
+    return "Code galat ya expire ho gaya — email ka poora code daalein ya naya OTP maangein";
+  }
+  return message;
+}
+
 function LoginForm() {
   const searchParams = useSearchParams();
   const [method, setMethod] = useState<AuthMethod>("email");
@@ -30,11 +45,10 @@ function LoginForm() {
     }
   }, [searchParams]);
 
-  async function sendEmailOtp(e: React.FormEvent) {
-    e.preventDefault();
+  async function requestEmailOtp(options?: { resend?: boolean }) {
     if (!email.includes("@")) {
       toast.error("Valid email daalein");
-      return;
+      return false;
     }
     setLoading(true);
     const supabase = createClient();
@@ -48,14 +62,33 @@ function LoginForm() {
     setLoading(false);
     if (error) {
       toast.error(error.message);
-      return;
+      return false;
     }
-    toast.success("Email bhej diya — 6-digit code enter karein ya email link par click karein");
-    setStep("otp");
+    if (options?.resend) {
+      setOtp("");
+      toast.success("Naya code bhej diya — email check karein");
+    } else {
+      toast.success("Email bhej diya — poora code enter karein ya email link par click karein");
+      setStep("otp");
+    }
+    return true;
+  }
+
+  async function sendEmailOtp(e: React.FormEvent) {
+    e.preventDefault();
+    await requestEmailOtp();
+  }
+
+  async function resendEmailOtp() {
+    await requestEmailOtp({ resend: true });
   }
 
   async function verifyEmailOtp(e: React.FormEvent) {
     e.preventDefault();
+    if (!isValidEmailOtpLength(otp)) {
+      toast.error(`Email ka poora code daalein (${EMAIL_OTP_MIN}–${EMAIL_OTP_MAX} digits)`);
+      return;
+    }
     setLoading(true);
     const supabase = createClient();
     const { error } = await supabase.auth.verifyOtp({
@@ -65,7 +98,7 @@ function LoginForm() {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(formatOtpError(error.message));
       return;
     }
     window.location.href = "/dashboard";
@@ -171,15 +204,15 @@ function LoginForm() {
               Code bheja gaya: <strong>{email}</strong>
             </p>
             <p className="text-xs text-muted-foreground">
-              Email mein 6-digit code dikhega. Agar sirf link aaya ho to Supabase email template update karein (README dekhein).
+              Email ka poora code enter karein (6–8 digits). Link par click bhi kar sakte hain.
             </p>
             <div className="space-y-2">
               <Label htmlFor="emailOtp">OTP</Label>
               <Input
                 id="emailOtp"
                 inputMode="numeric"
-                placeholder="6-digit OTP"
-                maxLength={6}
+                placeholder="Email ka poora code"
+                maxLength={EMAIL_OTP_MAX}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
                 required
@@ -187,6 +220,15 @@ function LoginForm() {
             </div>
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? "Verify..." : "Login Karein"}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              disabled={loading}
+              onClick={resendEmailOtp}
+            >
+              Dubara OTP bhejein
             </Button>
             <Button type="button" variant="ghost" className="w-full" onClick={() => setStep("input")}>
               Email badlein
