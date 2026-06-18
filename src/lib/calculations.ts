@@ -2,6 +2,9 @@ import Decimal from "decimal.js";
 
 Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
 
+/** 1 Quintal = 100 Kg (mandi standard) */
+export const QUINTAL_KG = 100;
+
 export type TransactionCalcInput = {
   weight: number | string;
   rate: number | string;
@@ -37,6 +40,29 @@ export function calculateTransaction(input: TransactionCalcInput): TransactionCa
   }
 
   return { grossAmount, commissionAmount, farmerPayable, traderReceivable };
+}
+
+/** Kisan Entry: wajan in Quintal, bhav per Kg */
+export function calculateTransactionQuintalPerKg(
+  input: Omit<TransactionCalcInput, "weight" | "rate"> & {
+    weightQuintal: number | string;
+    ratePerKg: number | string;
+  }
+): TransactionCalcResult {
+  const weightQuintal = new Decimal(input.weightQuintal);
+  const ratePerKg = new Decimal(input.ratePerKg);
+
+  if (weightQuintal.lte(0)) throw new Error("Wajan must be greater than 0");
+  if (ratePerKg.lte(0)) throw new Error("Bhav per kg must be greater than 0");
+
+  const weightKg = weightQuintal.mul(QUINTAL_KG);
+
+  return calculateTransaction({
+    weight: weightKg.toString(),
+    rate: ratePerKg.toString(),
+    commissionRate: input.commissionRate,
+    deductions: input.deductions,
+  });
 }
 
 export function toDecimal(value: number | string | Decimal): Decimal {

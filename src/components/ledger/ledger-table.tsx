@@ -60,7 +60,7 @@ export function LedgerTable({
               {withRunning.map((e) => (
                 <tr key={e.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 whitespace-nowrap">{formatDate(e.entryDate)}</td>
-                  <td className="px-4 py-3">{e.description ?? e.entryType}</td>
+                  <td className="px-4 py-3">{e.description ?? e.entryType ?? "Entry"}</td>
                   <td className="px-4 py-3 text-right font-medium">
                     {e.direction === "CREDIT" ? "+" : "-"}
                     {formatINR(e.amount.toString())}

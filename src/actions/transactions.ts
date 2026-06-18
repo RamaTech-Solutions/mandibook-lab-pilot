@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireFirm } from "@/lib/auth";
 import { transactionSchema } from "@/lib/validations";
 import { calculateTransaction } from "@/lib/calculations";
+import { createSaleRecord } from "@/lib/transactions/create-sale-record";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -57,65 +58,24 @@ export async function createTransaction(formData: FormData) {
   const txDate = new Date(data.transactionDate);
   txDate.setHours(0, 0, 0, 0);
 
-  const txn = await prisma.$transaction(async (tx) => {
-    const transaction = await tx.transaction.create({
-      data: {
-        firmId,
-        farmerId: data.farmerId,
-        traderId: data.traderId,
-        commodityId: data.commodityId,
-        transactionDate: txDate,
-        weight: data.weight,
-        rate: data.rate,
-        grossAmount: calc.grossAmount.toNumber(),
-        commissionRate: data.commissionRate,
-        commissionAmount: calc.commissionAmount.toNumber(),
-        deductions: data.deductions,
-        farmerPayable: calc.farmerPayable.toNumber(),
-        traderReceivable: calc.traderReceivable.toNumber(),
-        notes: data.notes,
-        createdBy: user.id,
-      },
-    });
-
-    await tx.ledgerEntry.createMany({
-      data: [
-        {
-          firmId,
-          partyId: data.farmerId,
-          transactionId: transaction.id,
-          entryDate: txDate,
-          entryType: "TRANSACTION",
-          direction: "CREDIT",
-          amount: calc.farmerPayable.toNumber(),
-          description: `Sale ${commodity.name} — kisan payable`,
-        },
-        {
-          firmId,
-          partyId: data.traderId,
-          transactionId: transaction.id,
-          entryDate: txDate,
-          entryType: "TRANSACTION",
-          direction: "DEBIT",
-          amount: calc.traderReceivable.toNumber(),
-          description: `Sale ${commodity.name} — vyapari receivable`,
-        },
-      ],
-    });
-
-    await tx.auditLog.create({
-      data: {
-        firmId,
-        userId: user.id,
-        action: "CREATE",
-        entityType: "transaction",
-        entityId: transaction.id,
-        newValues: data,
-      },
-    });
-
-    return transaction;
-  });
+  const txn = await prisma.$transaction(async (tx) =>
+    createSaleRecord(tx, {
+      firmId,
+      userId: user.id,
+      farmerId: data.farmerId,
+      traderId: data.traderId,
+      commodityId: data.commodityId,
+      commodityName: commodity.name,
+      transactionDate: txDate,
+      weight: data.weight,
+      rate: data.rate,
+      commissionRate: data.commissionRate,
+      deductions: data.deductions,
+      notes: data.notes,
+      calc,
+      auditValues: data,
+    })
+  );
 
   revalidatePath("/transactions");
   revalidatePath("/dashboard");

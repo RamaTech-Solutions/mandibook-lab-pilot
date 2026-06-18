@@ -42,9 +42,9 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent className="grid gap-2 sm:grid-cols-3">
             <Button asChild size="lg" className="h-14">
-              <Link href="/transactions/new">
+              <Link href="/entry">
                 <PlusCircle className="mr-2 h-5 w-5" />
-                Nayi Sale
+                Kisan Entry
               </Link>
             </Button>
             <Button asChild size="lg" variant="secondary" className="h-14">

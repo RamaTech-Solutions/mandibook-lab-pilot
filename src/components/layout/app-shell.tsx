@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 
 const mainNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/transactions/new", label: "Nayi Sale", icon: PlusCircle },
+  { href: "/entry", label: "Kisan Entry", icon: PlusCircle },
   { href: "/kisan", label: "Kisan", icon: Users },
   { href: "/vyapari", label: "Vyapari", icon: Store },
 ];

@@ -4,7 +4,7 @@ import { requireFirm } from "@/lib/auth";
 import { AppHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { formatINR, formatDate, UNIT_LABELS } from "@/lib/format";
+import { formatINR, formatDate, formatDueStatusLine, formatTransactionSummary, isPerKgRateTransaction } from "@/lib/format";
 import { buildTransactionReceipt, buildWhatsAppUrl } from "@/lib/whatsapp";
 import { Plus } from "lucide-react";
 
@@ -35,6 +35,9 @@ export default async function TransactionsPage() {
         ) : (
           <ul className="space-y-2">
             {transactions.map((t) => {
+              const perKg = isPerKgRateTransaction(t.notes);
+              const displayUnit = perKg ? "QUINTAL" : t.commodity.unit;
+
               const receipt = buildTransactionReceipt({
                 farmerName: t.farmer.name,
                 traderName: t.trader.name,
@@ -49,14 +52,34 @@ export default async function TransactionsPage() {
                 traderReceivable: t.traderReceivable.toString(),
                 date: t.transactionDate,
                 firm: { name: firm.name, mandiName: firm.mandiName },
+                ratePerKg: perKg,
               });
               const waUrl = buildWhatsAppUrl(null, receipt);
+
+              const dueStatus = formatDueStatusLine(t.notes);
 
               return (
                 <li key={t.id} className="rounded-xl border border-border bg-card p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-medium">{t.commodity.name} — {t.weight.toString()} {UNIT_LABELS[t.commodity.unit]}</p>
+                      <p className="font-medium">
+                        {formatTransactionSummary({
+                          commodity: t.commodity.name,
+                          weight: t.weight.toString(),
+                          unit: displayUnit,
+                          rate: t.rate.toString(),
+                          notes: t.notes,
+                        })}
+                      </p>
+                      {dueStatus && (
+                        <p
+                          className={`text-xs font-medium ${
+                            dueStatus.variant === "paid" ? "text-green-700" : "text-amber-700"
+                          }`}
+                        >
+                          {dueStatus.text}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {formatDate(t.transactionDate)} · {t.farmer.name} → {t.trader.name}
                       </p>

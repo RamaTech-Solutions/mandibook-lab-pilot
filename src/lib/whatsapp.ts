@@ -87,10 +87,19 @@ export function buildTransactionReceipt(params: {
   traderReceivable: string | number;
   date: Date;
   firm: FirmInfo;
+  ratePerKg?: boolean;
 }): string {
   const katauti = new Decimal(params.commissionAmount)
     .plus(params.deductions)
     .toFixed(2);
+
+  const bhavLine = params.ratePerKg
+    ? `Bhav: ${formatINR(params.rate)}/kg`
+    : `Bhav: ${formatINR(params.rate)}`;
+
+  const wajanLine = params.ratePerKg
+    ? `Wajan: ${params.weight} Quintal (${new Decimal(params.weight).mul(100).toString()} Kg)`
+    : `Wajan: ${params.weight} ${UNIT_LABELS[params.unit] ?? params.unit}`;
 
   return [
     `Mandi Sale Receipt`,
@@ -100,8 +109,8 @@ export function buildTransactionReceipt(params: {
     `Kisan: ${params.farmerName}`,
     `Vyapari: ${params.traderName}`,
     `Maal: ${params.commodity}`,
-    `Wajan: ${params.weight} ${UNIT_LABELS[params.unit] ?? params.unit}`,
-    `Bhav: ${formatINR(params.rate)}`,
+    wajanLine,
+    bhavLine,
     `Kul Rakam: ${formatINR(params.grossAmount)}`,
     `Commission/Katauti: ${formatINR(katauti)}`,
     `Kisan Net: ${formatINR(params.farmerPayable)}`,

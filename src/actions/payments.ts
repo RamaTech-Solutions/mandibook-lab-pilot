@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { requireFirm } from "@/lib/auth";
 import { paymentSchema } from "@/lib/validations";
+import { createPaymentRecord } from "@/lib/payments/create-payment-record";
 import { revalidatePath } from "next/cache";
 
 export async function createPayment(formData: FormData) {
@@ -35,44 +36,21 @@ export async function createPayment(formData: FormData) {
   paymentDate.setHours(0, 0, 0, 0);
 
   await prisma.$transaction(async (tx) => {
-    const payment = await tx.payment.create({
-      data: {
-        firmId,
-        partyId: data.partyId,
-        paymentDate,
-        amount: data.amount,
-        paymentMode: data.paymentMode,
-        direction,
-        notes: data.notes,
-        createdBy: user.id,
-      },
-    });
-
-    await tx.ledgerEntry.create({
-      data: {
-        firmId,
-        partyId: data.partyId,
-        paymentId: payment.id,
-        entryDate: paymentDate,
-        entryType: "PAYMENT",
-        direction: ledgerDirection,
-        amount: data.amount,
-        description:
-          party.type === "KISAN"
-            ? `Payment to kisan (${data.paymentMode})`
-            : `Payment from vyapari (${data.paymentMode})`,
-      },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        firmId,
-        userId: user.id,
-        action: "CREATE",
-        entityType: "payment",
-        entityId: payment.id,
-        newValues: data,
-      },
+    await createPaymentRecord(tx, {
+      firmId,
+      userId: user.id,
+      partyId: data.partyId,
+      paymentDate,
+      amount: data.amount,
+      paymentMode: data.paymentMode,
+      direction,
+      ledgerDirection,
+      description:
+        party.type === "KISAN"
+          ? `Payment to kisan (${data.paymentMode})`
+          : `Payment from vyapari (${data.paymentMode})`,
+      notes: data.notes,
+      auditValues: data,
     });
   });
 

@@ -43,6 +43,51 @@ export const transactionSchema = z.object({
   notes: z.string().optional(),
 });
 
+export const mandiEntrySchema = z.object({
+  farmerId: z.string().optional(),
+  farmerName: z.string().min(2, "Kisan ka naam required"),
+  farmerVillage: z.string().optional(),
+  farmerPhone: z.string().optional(),
+  traderId: z.string().optional(),
+  traderName: z.string().min(2, "Vyapari ka naam required"),
+  commodityId: z.string().optional(),
+  commodityName: z.string().min(1, "Fasal required"),
+  commodityUnit: z.enum(["KG", "QUINTAL", "BAG"]).default("QUINTAL"),
+  weight: z.coerce.number().positive("Wajan > 0 hona chahiye"),
+  rate: z.coerce.number().positive("Bhav > 0 hona chahiye"),
+  commissionRate: z.coerce.number().min(0).max(100),
+  deductions: z.coerce.number().min(0).default(0),
+  transactionDate: z.string().min(1),
+  notes: z.string().optional(),
+  cashPayment: z.coerce.number().min(0).default(0),
+  onlinePayment: z.coerce.number().min(0).default(0),
+  remainingDueDate: z.string().optional(),
+});
+
+export function validateMandiEntryPayments(
+  data: Pick<z.infer<typeof mandiEntrySchema>, "cashPayment" | "onlinePayment" | "remainingDueDate" | "transactionDate">,
+  farmerPayable: number
+): string | null {
+  const totalPaid = data.cashPayment + data.onlinePayment;
+  if (totalPaid > farmerPayable + 0.001) {
+    return "Payment kisan net se zyada nahi ho sakta";
+  }
+  const remaining = farmerPayable - totalPaid;
+  if (remaining > 0.001) {
+    if (!data.remainingDueDate?.trim()) {
+      return "Baaki payment ki date required hai";
+    }
+    const saleDate = new Date(data.transactionDate);
+    saleDate.setHours(0, 0, 0, 0);
+    const dueDate = new Date(data.remainingDueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    if (dueDate < saleDate) {
+      return "Baaki payment ki date sale date se pehle nahi ho sakti";
+    }
+  }
+  return null;
+}
+
 export const paymentSchema = z.object({
   partyId: z.string().min(1, "Party select karein"),
   paymentDate: z.string().min(1),
@@ -60,4 +105,5 @@ export type FirmInput = z.infer<typeof firmSchema>;
 export type PartyInput = z.infer<typeof partySchema>;
 export type CommodityInput = z.infer<typeof commoditySchema>;
 export type TransactionInput = z.infer<typeof transactionSchema>;
+export type MandiEntryInput = z.infer<typeof mandiEntrySchema>;
 export type PaymentInput = z.infer<typeof paymentSchema>;
