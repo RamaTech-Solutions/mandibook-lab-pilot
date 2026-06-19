@@ -1,6 +1,7 @@
 "use client";
 
 import { joinAsMunim } from "@/actions/firm";
+import { useLanguage } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState } from "react";
@@ -13,6 +14,7 @@ type Invite = {
 };
 
 export function MunimJoinCard({ invite }: { invite: Invite }) {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
 
   async function handleJoin() {
@@ -27,14 +29,14 @@ export function MunimJoinCard({ invite }: { invite: Invite }) {
   return (
     <Card className="border-mandi-primary">
       <CardHeader>
-        <CardTitle>Munim Invite</CardTitle>
+        <CardTitle>{t("munim.title")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm">
-          Aapko <strong>{invite.firm.name}</strong> ({invite.firm.mandiName}) mein Munim ke roop mein invite kiya gaya hai.
+          {t("munim.body", { firm: invite.firm.name, mandi: invite.firm.mandiName })}
         </p>
         <Button onClick={handleJoin} className="w-full" size="lg" disabled={loading}>
-          {loading ? "Joining..." : "Join Karein"}
+          {loading ? t("munim.joining") : t("munim.join")}
         </Button>
       </CardContent>
     </Card>

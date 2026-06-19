@@ -1,11 +1,5 @@
+import { AuthLayoutShell } from "@/components/layout/auth-layout-shell";
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-mandi-light p-4">
-      <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold text-mandi-primary">MandiBook Lab</h1>
-        <p className="text-sm text-muted-foreground">Ramatech Innovation Pvt Ltd</p>
-      </div>
-      <div className="w-full max-w-sm">{children}</div>
-    </div>
-  );
+  return <AuthLayoutShell>{children}</AuthLayoutShell>;
 }

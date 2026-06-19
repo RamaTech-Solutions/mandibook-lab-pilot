@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/sonner";
+import { I18nProvider } from "@/components/i18n/i18n-provider";
+import { getServerLocale } from "@/lib/i18n/server";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,11 +9,13 @@ export const metadata: Metadata = {
   description: "Digital mandi bahi-khata for adatiyas — Ramatech Innovation",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getServerLocale();
+
   return (
-    <html lang="en">
+    <html lang={locale}>
       <body className="min-h-screen bg-background">
-        {children}
+        <I18nProvider locale={locale}>{children}</I18nProvider>
         <Toaster />
       </body>
     </html>

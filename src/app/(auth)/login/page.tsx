@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { isPhoneAuthEnabled } from "@/lib/auth-config";
+import { useLanguage } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,15 +21,8 @@ function isValidEmailOtpLength(token: string) {
   return token.length >= EMAIL_OTP_MIN && token.length <= EMAIL_OTP_MAX;
 }
 
-function formatOtpError(message: string) {
-  const lower = message.toLowerCase();
-  if (lower.includes("expired") || lower.includes("invalid")) {
-    return "Code galat ya expire ho gaya — email ka poora code daalein ya naya OTP maangein";
-  }
-  return message;
-}
-
 function LoginForm() {
+  const { t } = useLanguage();
   const searchParams = useSearchParams();
   const [method, setMethod] = useState<AuthMethod>("email");
   const [step, setStep] = useState<Step>("input");
@@ -41,13 +35,13 @@ function LoginForm() {
 
   useEffect(() => {
     if (searchParams.get("error") === "auth") {
-      toast.error("Login link expire ho gaya ya invalid hai — dubara OTP maangein");
+      toast.error(t("login.authExpired"));
     }
-  }, [searchParams]);
+  }, [searchParams, t]);
 
   async function requestEmailOtp(options?: { resend?: boolean }) {
     if (!email.includes("@")) {
-      toast.error("Valid email daalein");
+      toast.error(t("login.validEmail"));
       return false;
     }
     setLoading(true);
@@ -66,9 +60,9 @@ function LoginForm() {
     }
     if (options?.resend) {
       setOtp("");
-      toast.success("Naya code bhej diya — email check karein");
+      toast.success(t("login.otpResent"));
     } else {
-      toast.success("Email bhej diya — poora code enter karein ya email link par click karein");
+      toast.success(t("login.emailSent"));
       setStep("otp");
     }
     return true;
@@ -86,7 +80,7 @@ function LoginForm() {
   async function verifyEmailOtp(e: React.FormEvent) {
     e.preventDefault();
     if (!isValidEmailOtpLength(otp)) {
-      toast.error(`Email ka poora code daalein (${EMAIL_OTP_MIN}–${EMAIL_OTP_MAX} digits)`);
+      toast.error(t("login.fullOtpRequired"));
       return;
     }
     setLoading(true);
@@ -98,7 +92,12 @@ function LoginForm() {
     });
     setLoading(false);
     if (error) {
-      toast.error(formatOtpError(error.message));
+      const lower = error.message.toLowerCase();
+      toast.error(
+        lower.includes("expired") || lower.includes("invalid")
+          ? t("login.otpInvalid")
+          : error.message
+      );
       return;
     }
     window.location.href = "/dashboard";
@@ -107,7 +106,7 @@ function LoginForm() {
   async function sendPhoneOtp(e: React.FormEvent) {
     e.preventDefault();
     if (!/^[6-9]\d{9}$/.test(phone)) {
-      toast.error("Valid 10-digit mobile number daalein");
+      toast.error(t("login.validMobile"));
       return;
     }
     setLoading(true);
@@ -118,7 +117,7 @@ function LoginForm() {
       toast.error(error.message);
       return;
     }
-    toast.success("OTP bhej diya gaya");
+    toast.success(t("login.otpSent"));
     setStep("otp");
   }
 
@@ -148,11 +147,9 @@ function LoginForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Login</CardTitle>
+        <CardTitle>{t("login.title")}</CardTitle>
         <CardDescription>
-          {method === "email"
-            ? "Email par OTP se login karein (Pilot)"
-            : "Mobile number se OTP login karein"}
+          {method === "email" ? t("login.emailDesc") : t("login.phoneDesc")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -164,7 +161,7 @@ function LoginForm() {
               method === "email" ? "bg-card shadow-sm text-mandi-dark" : "text-muted-foreground"
             }`}
           >
-            Email
+            {t("common.email")}
           </button>
           <button
             type="button"
@@ -174,18 +171,18 @@ function LoginForm() {
               method === "phone" ? "bg-card shadow-sm text-mandi-dark" : "text-muted-foreground"
             } ${!isPhoneAuthEnabled ? "cursor-not-allowed opacity-50" : ""}`}
           >
-            Phone {isPhoneAuthEnabled ? "" : "(Twilio ke baad)"}
+            {t("common.phone")} {isPhoneAuthEnabled ? "" : t("login.phoneLater")}
           </button>
         </div>
 
         {method === "email" && step === "input" && (
           <form onSubmit={sendEmailOtp} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("common.email")}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="aap@email.com"
+                placeholder={t("login.emailPlaceholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -193,7 +190,7 @@ function LoginForm() {
               />
             </div>
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Bhej rahe hain..." : "OTP Bhejein"}
+              {loading ? t("login.sending") : t("login.sendOtp")}
             </Button>
           </form>
         )}
@@ -201,17 +198,15 @@ function LoginForm() {
         {method === "email" && step === "otp" && (
           <form onSubmit={verifyEmailOtp} className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Code bheja gaya: <strong>{email}</strong>
+              {t("login.codeSentTo")} <strong>{email}</strong>
             </p>
-            <p className="text-xs text-muted-foreground">
-              Email ka poora code enter karein (6–8 digits). Link par click bhi kar sakte hain.
-            </p>
+            <p className="text-xs text-muted-foreground">{t("login.emailOtpHint")}</p>
             <div className="space-y-2">
-              <Label htmlFor="emailOtp">OTP</Label>
+              <Label htmlFor="emailOtp">{t("common.otp")}</Label>
               <Input
                 id="emailOtp"
                 inputMode="numeric"
-                placeholder="Email ka poora code"
+                placeholder={t("login.emailOtpPlaceholder")}
                 maxLength={EMAIL_OTP_MAX}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
@@ -219,7 +214,7 @@ function LoginForm() {
               />
             </div>
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Verify..." : "Login Karein"}
+              {loading ? t("common.verify") : t("login.loginBtn")}
             </Button>
             <Button
               type="button"
@@ -228,10 +223,10 @@ function LoginForm() {
               disabled={loading}
               onClick={resendEmailOtp}
             >
-              Dubara OTP bhejein
+              {t("login.resendOtp")}
             </Button>
             <Button type="button" variant="ghost" className="w-full" onClick={() => setStep("input")}>
-              Email badlein
+              {t("login.changeEmail")}
             </Button>
           </form>
         )}
@@ -239,7 +234,7 @@ function LoginForm() {
         {method === "phone" && step === "input" && (
           <form onSubmit={sendPhoneOtp} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="phone">Mobile Number</Label>
+              <Label htmlFor="phone">{t("login.mobileNumber")}</Label>
               <div className="flex gap-2">
                 <span className="flex h-11 items-center rounded-lg border border-border bg-muted px-3 text-sm">
                   +91
@@ -256,20 +251,22 @@ function LoginForm() {
               </div>
             </div>
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Bhej rahe hain..." : "OTP Bhejein"}
+              {loading ? t("login.sending") : t("login.sendOtp")}
             </Button>
           </form>
         )}
 
         {method === "phone" && step === "otp" && (
           <form onSubmit={verifyPhoneOtp} className="space-y-4">
-            <p className="text-sm text-muted-foreground">OTP bheja gaya: +91 {phone}</p>
+            <p className="text-sm text-muted-foreground">
+              {t("login.phoneOtpSent")} {phone}
+            </p>
             <div className="space-y-2">
-              <Label htmlFor="phoneOtp">OTP</Label>
+              <Label htmlFor="phoneOtp">{t("common.otp")}</Label>
               <Input
                 id="phoneOtp"
                 inputMode="numeric"
-                placeholder="6-digit OTP"
+                placeholder={t("login.phoneOtpPlaceholder")}
                 maxLength={6}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
@@ -277,10 +274,10 @@ function LoginForm() {
               />
             </div>
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Verify..." : "Login Karein"}
+              {loading ? t("common.verify") : t("login.loginBtn")}
             </Button>
             <Button type="button" variant="ghost" className="w-full" onClick={() => setStep("input")}>
-              Number badlein
+              {t("login.changeNumber")}
             </Button>
           </form>
         )}

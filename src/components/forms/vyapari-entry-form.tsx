@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { createMandiEntry } from "@/actions/mandi-entry";
+import { createVyapariEntry } from "@/actions/vyapari-entry";
 import { AppHeader } from "@/components/layout/app-shell";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { translateError } from "@/lib/i18n/translate-error";
@@ -12,16 +12,16 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { calculateTransactionQuintalPerKg, QUINTAL_KG } from "@/lib/calculations";
 import { formatINR, todayIST } from "@/lib/format";
-import { validateMandiEntryPayments } from "@/lib/validations";
+import { validateVyapariEntryPayments } from "@/lib/validations";
 import { toast } from "sonner";
 
-type Party = { id: string; name: string; village?: string | null };
+type Trader = { id: string; name: string; phone?: string | null; address?: string | null };
 type Commodity = { id: string; name: string; unit: string; totalWeight?: number };
 
-function matchPartyByName(parties: Party[], name: string) {
+function matchTraderByName(traders: Trader[], name: string) {
   const trimmed = name.trim().toLowerCase();
   if (!trimmed) return null;
-  return parties.find((p) => p.name.toLowerCase() === trimmed) ?? null;
+  return traders.find((p) => p.name.toLowerCase() === trimmed) ?? null;
 }
 
 function matchCommodityByName(commodities: Commodity[], name: string) {
@@ -30,12 +30,12 @@ function matchCommodityByName(commodities: Commodity[], name: string) {
   return commodities.find((c) => c.name.toLowerCase() === trimmed) ?? null;
 }
 
-export function KisanEntryForm({
-  kisans,
+export function VyapariEntryForm({
+  traders,
   commodities,
   defaultCommissionRate,
 }: {
-  kisans: Party[];
+  traders: Trader[];
   commodities: Commodity[];
   defaultCommissionRate: number;
 }) {
@@ -44,10 +44,10 @@ export function KisanEntryForm({
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
 
-  const [farmerId, setFarmerId] = useState("");
-  const [farmerName, setFarmerName] = useState("");
-  const [farmerVillage, setFarmerVillage] = useState("");
-  const [farmerPhone, setFarmerPhone] = useState("");
+  const [traderId, setTraderId] = useState("");
+  const [traderName, setTraderName] = useState("");
+  const [traderPhone, setTraderPhone] = useState("");
+  const [traderCity, setTraderCity] = useState("");
 
   const [commodityId, setCommodityId] = useState("");
   const [commodityName, setCommodityName] = useState("");
@@ -83,21 +83,22 @@ export function KisanEntryForm({
     }
   }, [weight, rate, commissionRate, deductions]);
 
-  const farmerPayable = preview ? preview.farmerPayable.toNumber() : 0;
+  const traderReceivable = preview ? preview.traderReceivable.toNumber() : 0;
 
   const cashAmount = parseFloat(cashPayment) || 0;
   const onlineAmount = parseFloat(onlinePayment) || 0;
-  const totalPaidToday = cashAmount + onlineAmount;
-  const remainingAmount = Math.max(0, farmerPayable - totalPaidToday);
+  const totalReceivedToday = cashAmount + onlineAmount;
+  const remainingAmount = Math.max(0, traderReceivable - totalReceivedToday);
 
-  function handleFarmerNameChange(value: string) {
-    setFarmerName(value);
-    const match = matchPartyByName(kisans, value);
+  function handleTraderNameChange(value: string) {
+    setTraderName(value);
+    const match = matchTraderByName(traders, value);
     if (match) {
-      setFarmerId(match.id);
-      if (match.village && !farmerVillage) setFarmerVillage(match.village);
+      setTraderId(match.id);
+      if (match.phone && !traderPhone) setTraderPhone(match.phone.replace(/\D/g, "").slice(-10));
+      if (match.address && !traderCity) setTraderCity(match.address);
     } else {
-      setFarmerId("");
+      setTraderId("");
     }
   }
 
@@ -108,11 +109,11 @@ export function KisanEntryForm({
   }
 
   function handleNext() {
-    if (!farmerName.trim()) {
-      toast.error(t("errors.farmerNameRequired"));
+    if (!traderName.trim()) {
+      toast.error(t("errors.traderNameRequired"));
       return;
     }
-    if (!/^[6-9]\d{9}$/.test(farmerPhone.trim())) {
+    if (!/^[6-9]\d{9}$/.test(traderPhone.trim())) {
       toast.error(t("errors.phoneRequired"));
       return;
     }
@@ -133,14 +134,14 @@ export function KisanEntryForm({
   }
 
   function validateStep2(): string | null {
-    return validateMandiEntryPayments(
+    return validateVyapariEntryPayments(
       {
         cashPayment: cashAmount,
         onlinePayment: onlineAmount,
         remainingDueDate: remainingAmount > 0.001 ? remainingDueDate : undefined,
         transactionDate,
       },
-      farmerPayable
+      traderReceivable
     );
   }
 
@@ -153,10 +154,10 @@ export function KisanEntryForm({
       return;
     }
 
-    formData.set("farmerId", farmerId);
-    formData.set("farmerName", farmerName);
-    formData.set("farmerVillage", farmerVillage);
-    formData.set("farmerPhone", farmerPhone);
+    formData.set("traderId", traderId);
+    formData.set("traderName", traderName);
+    formData.set("traderPhone", traderPhone);
+    formData.set("traderCity", traderCity);
     formData.set("commodityId", commodityId);
     formData.set("commodityName", commodityName);
     formData.set("commodityUnit", "QUINTAL");
@@ -169,7 +170,7 @@ export function KisanEntryForm({
     }
 
     setLoading(true);
-    const result = await createMandiEntry(formData);
+    const result = await createVyapariEntry(formData);
     if (result?.error) {
       toast.error(translateError(getMessages(locale), result.error));
       setLoading(false);
@@ -178,10 +179,10 @@ export function KisanEntryForm({
 
   return (
     <>
-      <AppHeader title={t("entry.title")} />
+      <AppHeader title={t("vyapariEntry.title")} />
       <main className="space-y-4 p-4 pb-28">
         <p className="text-xs text-muted-foreground">
-          {step === 1 ? t("entry.step1Hint") : t("entry.step2Hint")}
+          {step === 1 ? t("vyapariEntry.step1Hint") : t("vyapariEntry.step2Hint")}
         </p>
 
         <form action={handleSubmit} className="space-y-4">
@@ -189,46 +190,46 @@ export function KisanEntryForm({
             <>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{t("entry.sectionKisan")}</CardTitle>
+                  <CardTitle className="text-base">{t("vyapariEntry.sectionTrader")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="farmerName">{t("entry.farmerName")}</Label>
+                    <Label htmlFor="traderName">{t("vyapariEntry.traderName")}</Label>
                     <Input
-                      id="farmerName"
-                      name="farmerName"
-                      list="kisan-suggestions"
+                      id="traderName"
+                      name="traderName"
+                      list="vyapari-suggestions"
                       required
-                      placeholder={t("entry.farmerPlaceholder")}
-                      value={farmerName}
-                      onChange={(e) => handleFarmerNameChange(e.target.value)}
+                      placeholder={t("vyapariEntry.traderPlaceholder")}
+                      value={traderName}
+                      onChange={(e) => handleTraderNameChange(e.target.value)}
                     />
-                    <datalist id="kisan-suggestions">
-                      {kisans.map((k) => (
-                        <option key={k.id} value={k.name} />
+                    <datalist id="vyapari-suggestions">
+                      {traders.map((v) => (
+                        <option key={v.id} value={v.name} />
                       ))}
                     </datalist>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label htmlFor="farmerVillage">{t("entry.village")}</Label>
+                      <Label htmlFor="traderPhone">{t("entry.phone")}</Label>
                       <Input
-                        id="farmerVillage"
-                        name="farmerVillage"
-                        value={farmerVillage}
-                        onChange={(e) => setFarmerVillage(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="farmerPhone">{t("entry.phone")}</Label>
-                      <Input
-                        id="farmerPhone"
-                        name="farmerPhone"
+                        id="traderPhone"
+                        name="traderPhone"
                         maxLength={10}
                         required
                         placeholder="9876543210"
-                        value={farmerPhone}
-                        onChange={(e) => setFarmerPhone(e.target.value.replace(/\D/g, ""))}
+                        value={traderPhone}
+                        onChange={(e) => setTraderPhone(e.target.value.replace(/\D/g, ""))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="traderCity">{t("vyapariEntry.city")}</Label>
+                      <Input
+                        id="traderCity"
+                        name="traderCity"
+                        value={traderCity}
+                        onChange={(e) => setTraderCity(e.target.value)}
                       />
                     </div>
                   </div>
@@ -237,7 +238,7 @@ export function KisanEntryForm({
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{t("entry.sectionMaal")}</CardTitle>
+                  <CardTitle className="text-base">{t("vyapariEntry.sectionPurchase")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -279,7 +280,9 @@ export function KisanEntryForm({
                         onChange={(e) => setWeight(e.target.value)}
                       />
                       {weightKg != null && (
-                        <p className="text-xs text-muted-foreground">{t("entry.weightKg", { n: weightKg.toLocaleString("en-IN") })}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t("entry.weightKg", { n: weightKg.toLocaleString("en-IN") })}
+                        </p>
                       )}
                     </div>
                     <div className="space-y-2">
@@ -366,9 +369,9 @@ export function KisanEntryForm({
                       <span>{formatINR(preview.commissionAmount.toString())}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>{t("entry.previewNet")}</span>
+                      <span>{t("vyapariEntry.previewTraderTotal")}</span>
                       <span className="font-semibold text-mandi-dark">
-                        {formatINR(preview.farmerPayable.toString())}
+                        {formatINR(preview.traderReceivable.toString())}
                       </span>
                     </div>
                   </CardContent>
@@ -385,22 +388,22 @@ export function KisanEntryForm({
                 </CardHeader>
                 <CardContent className="space-y-1 text-sm">
                   <p>
-                    <span className="text-muted-foreground">{t("entry.summaryFarmer")}</span> {farmerName}
+                    <span className="text-muted-foreground">{t("vyapariEntry.summaryTrader")}</span> {traderName}
                   </p>
                   <p>
-                    <span className="text-muted-foreground">{t("entry.summaryCrop")}</span> {commodityName} — {weight} {t("common.quintal")} @{" "}
-                    {formatINR(rate)}/kg
+                    <span className="text-muted-foreground">{t("entry.summaryCrop")}</span> {commodityName} — {weight}{" "}
+                    {t("common.quintal")} @ {formatINR(rate)}/kg
                   </p>
                   <div className="flex justify-between pt-2 font-semibold text-mandi-dark">
-                    <span>{t("entry.previewNet")}</span>
-                    <span>{formatINR(farmerPayable)}</span>
+                    <span>{t("vyapariEntry.previewTraderTotal")}</span>
+                    <span>{formatINR(traderReceivable)}</span>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{t("entry.sectionPayment")}</CardTitle>
+                  <CardTitle className="text-base">{t("vyapariEntry.paymentReceived")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
@@ -432,8 +435,8 @@ export function KisanEntryForm({
 
                   <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1 text-sm">
                     <div className="flex justify-between">
-                      <span>{t("entry.paidToday")}</span>
-                      <span className="font-medium">{formatINR(totalPaidToday)}</span>
+                      <span>{t("vyapariEntry.receivedToday")}</span>
+                      <span className="font-medium">{formatINR(totalReceivedToday)}</span>
                     </div>
                     <div className="flex justify-between font-semibold text-mandi-dark">
                       <span>{t("entry.remaining")}</span>
@@ -454,20 +457,19 @@ export function KisanEntryForm({
                         onChange={(e) => setRemainingDueDate(e.target.value)}
                       />
                       <p className="text-xs text-muted-foreground">
-                        {t("entry.dueDateHint", { amount: formatINR(remainingAmount) })}
+                        {t("vyapariEntry.dueDateHint", { amount: formatINR(remainingAmount) })}
                       </p>
                     </div>
                   )}
 
-                  {totalPaidToday > farmerPayable + 0.001 && (
-                    <p className="text-sm text-destructive">{t("entry.paymentExceeds")}</p>
+                  {totalReceivedToday > traderReceivable + 0.001 && (
+                    <p className="text-sm text-destructive">{t("vyapariEntry.paymentExceeds")}</p>
                   )}
                 </CardContent>
               </Card>
 
-              {/* Hidden fields for server action */}
-              <input type="hidden" name="farmerName" value={farmerName} />
-              <input type="hidden" name="farmerPhone" value={farmerPhone} />
+              <input type="hidden" name="traderName" value={traderName} />
+              <input type="hidden" name="traderPhone" value={traderPhone} />
               <input type="hidden" name="commodityName" value={commodityName} />
               <input type="hidden" name="weight" value={weight} />
               <input type="hidden" name="rate" value={rate} />
@@ -497,9 +499,9 @@ export function KisanEntryForm({
                   type="submit"
                   className="flex-[2]"
                   size="lg"
-                  disabled={loading || totalPaidToday > farmerPayable + 0.001}
+                  disabled={loading || totalReceivedToday > traderReceivable + 0.001}
                 >
-                  {loading ? t("common.saving") : t("entry.save")}
+                  {loading ? t("common.saving") : t("vyapariEntry.save")}
                 </Button>
               </div>
             )}

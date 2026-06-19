@@ -112,6 +112,56 @@ export async function getParty(id: string) {
   };
 }
 
+export async function getKisanByName(name: string) {
+  const { firmId } = await requireFirm();
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+
+  const party = await prisma.party.findFirst({
+    where: {
+      firmId,
+      type: "KISAN",
+      deletedAt: null,
+      name: { equals: trimmed, mode: "insensitive" },
+    },
+    include: {
+      ledgerEntries: {
+        orderBy: [{ entryDate: "asc" }, { createdAt: "asc" }],
+        include: {
+          transaction: { include: { commodity: true } },
+          payment: true,
+        },
+      },
+    },
+  });
+
+  if (!party) return null;
+
+  const balance = calculatePartyBalance(
+    party.type,
+    party.ledgerEntries,
+    party.openingBalance,
+    party.balanceType
+  );
+
+  return {
+    id: party.id,
+    name: party.name,
+    type: party.type,
+    balanceType: party.balanceType,
+    openingBalance: party.openingBalance.toString(),
+    balance: balance.toString(),
+    ledgerEntries: party.ledgerEntries.map((e) => ({
+      id: e.id,
+      entryDate: e.entryDate,
+      entryType: e.entryType,
+      direction: e.direction,
+      amount: e.amount.toString(),
+      description: e.description,
+    })),
+  };
+}
+
 export async function deleteParty(id: string) {
   const { firmId, user } = await requireFirm();
 

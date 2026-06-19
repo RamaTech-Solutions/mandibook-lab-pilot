@@ -2,9 +2,9 @@
 
 import { prisma } from "@/lib/db";
 import { requireFirm } from "@/lib/auth";
-import { mandiEntrySchema, validateMandiEntryPayments } from "@/lib/validations";
+import { vyapariEntrySchema, validateVyapariEntryPayments } from "@/lib/validations";
 import { calculateTransactionQuintalPerKg } from "@/lib/calculations";
-import { appendDueTag, appendPerKgTag } from "@/lib/format";
+import { appendDueTag, appendPerKgTag, appendVyapariSourceTag } from "@/lib/format";
 import { resolveCommodity, resolveParty } from "@/lib/mandi/resolve-entities";
 import { createSaleRecord } from "@/lib/transactions/create-sale-record";
 import { createPaymentRecord } from "@/lib/payments/create-payment-record";
@@ -12,16 +12,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import Decimal from "decimal.js";
 
-export async function createMandiEntry(formData: FormData) {
+export async function createVyapariEntry(formData: FormData) {
   const { firmId, user, firm } = await requireFirm();
 
-  const parsed = mandiEntrySchema.safeParse({
-    farmerId: formData.get("farmerId") || undefined,
-    farmerName: formData.get("farmerName"),
-    farmerVillage: formData.get("farmerVillage") || undefined,
-    farmerPhone: formData.get("farmerPhone") || undefined,
+  const parsed = vyapariEntrySchema.safeParse({
     traderId: formData.get("traderId") || undefined,
-    traderName: formData.get("traderName") || undefined,
+    traderName: formData.get("traderName"),
+    traderPhone: formData.get("traderPhone") || undefined,
+    traderCity: formData.get("traderCity") || undefined,
     commodityId: formData.get("commodityId") || undefined,
     commodityName: formData.get("commodityName"),
     commodityUnit: "QUINTAL",
@@ -54,42 +52,37 @@ export async function createMandiEntry(formData: FormData) {
     return { error: e instanceof Error ? e.message : "Calculation error" };
   }
 
-  const farmerPayable = calc.farmerPayable.toNumber();
-  const paymentError = validateMandiEntryPayments(data, farmerPayable);
+  const traderReceivable = calc.traderReceivable.toNumber();
+  const paymentError = validateVyapariEntryPayments(data, traderReceivable);
   if (paymentError) {
     return { error: paymentError };
   }
 
-  const totalPaid = new Decimal(data.cashPayment).plus(data.onlinePayment);
-  const remaining = calc.farmerPayable.minus(totalPaid).toDecimalPlaces(2);
+  const totalReceived = new Decimal(data.cashPayment).plus(data.onlinePayment);
+  const remaining = calc.traderReceivable.minus(totalReceived).toDecimalPlaces(2);
 
-  let storedNotes = appendPerKgTag(data.notes);
+  let storedNotes = appendVyapariSourceTag(appendPerKgTag(data.notes));
   if (remaining.gt(0) && data.remainingDueDate) {
     storedNotes = appendDueTag(storedNotes, remaining.toNumber(), data.remainingDueDate);
   }
 
-  const saleBase = `Sale ${data.commodityName.trim()} — ${data.weight} Quintal @ ₹${data.rate}/kg`;
+  const purchaseBase = `Purchase ${data.commodityName.trim()} — ${data.weight} Quintal @ ₹${data.rate}/kg`;
 
   const txDate = new Date(data.transactionDate);
   txDate.setHours(0, 0, 0, 0);
 
+  const stockFarmerName = `${firm.name} (Stock)`;
+
   let txn;
-  let farmerIdForRevalidate: string | undefined;
+  let traderIdForRevalidate: string | undefined;
   try {
     txn = await prisma.$transaction(async (tx) => {
-      const farmer = await resolveParty(tx, firmId, user.id, "KISAN", data.farmerId, data.farmerName, {
-        village: data.farmerVillage,
-        phone: data.farmerPhone,
+      const trader = await resolveParty(tx, firmId, user.id, "VYAPARI", data.traderId, data.traderName, {
+        phone: data.traderPhone,
+        address: data.traderCity,
       });
 
-      const trader = await resolveParty(
-        tx,
-        firmId,
-        user.id,
-        "VYAPARI",
-        data.traderId,
-        data.traderName?.trim() || `${firm.name} (Mandi)`
-      );
+      const farmer = await resolveParty(tx, firmId, user.id, "KISAN", undefined, stockFarmerName);
 
       if (farmer.id === trader.id) {
         throw new Error("Kisan aur Vyapari alag hone chahiye");
@@ -118,12 +111,13 @@ export async function createMandiEntry(formData: FormData) {
         deductions: data.deductions,
         notes: storedNotes,
         calc,
-        ledgerDescription: saleBase,
+        ledgerDescription: purchaseBase,
         auditValues: {
           ...data,
-          source: "mandi_entry",
+          source: "vyapari_entry",
           ratePerKg: true,
           commodityUnit: "QUINTAL",
+          stockFarmerName,
           remainingAmount: remaining.gt(0) ? remaining.toNumber() : 0,
         },
       });
@@ -132,13 +126,13 @@ export async function createMandiEntry(formData: FormData) {
         await createPaymentRecord(tx, {
           firmId,
           userId: user.id,
-          partyId: farmer.id,
+          partyId: trader.id,
           paymentDate: txDate,
           amount: data.cashPayment,
           paymentMode: "CASH",
-          direction: "PAID",
-          ledgerDirection: "DEBIT",
-          description: `${saleBase} — cash (same day)`,
+          direction: "RECEIVED",
+          ledgerDirection: "CREDIT",
+          description: `${purchaseBase} — cash received (same day)`,
           transactionId: transaction.id,
         });
       }
@@ -147,18 +141,18 @@ export async function createMandiEntry(formData: FormData) {
         await createPaymentRecord(tx, {
           firmId,
           userId: user.id,
-          partyId: farmer.id,
+          partyId: trader.id,
           paymentDate: txDate,
           amount: data.onlinePayment,
           paymentMode: "UPI",
-          direction: "PAID",
-          ledgerDirection: "DEBIT",
-          description: `${saleBase} — online/UPI (same day)`,
+          direction: "RECEIVED",
+          ledgerDirection: "CREDIT",
+          description: `${purchaseBase} — online/UPI received (same day)`,
           transactionId: transaction.id,
         });
       }
 
-      farmerIdForRevalidate = farmer.id;
+      traderIdForRevalidate = trader.id;
       return transaction;
     });
   } catch (e) {
@@ -168,12 +162,10 @@ export async function createMandiEntry(formData: FormData) {
   revalidatePath("/transactions");
   revalidatePath("/payments");
   revalidatePath("/dashboard");
-  revalidatePath("/kisan");
   revalidatePath("/vyapari");
   revalidatePath("/maal");
-  revalidatePath("/entry");
-  if (farmerIdForRevalidate) {
-    revalidatePath(`/kisan/${farmerIdForRevalidate}`);
+  if (traderIdForRevalidate) {
+    revalidatePath(`/vyapari/${traderIdForRevalidate}`);
   }
   redirect(`/transactions?created=${txn.id}`);
 }

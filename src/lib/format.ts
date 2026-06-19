@@ -62,6 +62,43 @@ export const UNIT_LABELS: Record<string, string> = {
 /** Stored in transaction notes to mark rate as ₹/kg (Kisan Entry) */
 export const PER_KG_NOTE_TAG = "#per_kg";
 
+/** Stored in transaction notes for Vyapari Entry (trader purchase) */
+export const VYAPARI_SOURCE_TAG = "#src:vyapari";
+
+export function isVyapariSourceTransaction(notes: string | null | undefined): boolean {
+  return notes?.includes(VYAPARI_SOURCE_TAG) ?? false;
+}
+
+export function appendVyapariSourceTag(notes: string | undefined): string {
+  const trimmed = notes?.trim();
+  if (!trimmed) return VYAPARI_SOURCE_TAG;
+  if (trimmed.includes(VYAPARI_SOURCE_TAG)) return trimmed;
+  return `${trimmed} ${VYAPARI_SOURCE_TAG}`;
+}
+
+export function isStockOutTransaction(
+  notes: string | null | undefined,
+  farmerName: string
+): boolean {
+  return isVyapariSourceTransaction(notes) || farmerName.trimEnd().endsWith("(Stock)");
+}
+
+export function formatQuintal(weight: number): string {
+  const n = Number(weight);
+  if (!Number.isFinite(n)) return "0";
+  return n.toLocaleString("en-IN", { maximumFractionDigits: 3 });
+}
+
+export function computeNetWeight(
+  weight: number,
+  notes: string | null | undefined,
+  farmerName: string
+): number {
+  const w = Number(weight);
+  if (!Number.isFinite(w)) return 0;
+  return isStockOutTransaction(notes, farmerName) ? -w : w;
+}
+
 export function isPerKgRateTransaction(notes: string | null | undefined): boolean {
   return notes?.includes(PER_KG_NOTE_TAG) ?? false;
 }

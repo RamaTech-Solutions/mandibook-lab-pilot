@@ -1,19 +1,19 @@
-import { getPayments, getAllPartiesForPayment } from "@/actions/payments";
-import { getDuePayments } from "@/actions/due-payments";
+import { getDuePayments, getTraderDuePayments } from "@/actions/due-payments";
+import { getParties } from "@/actions/parties";
 import { PaymentsPageClient } from "@/components/forms/payments-page-client";
 
 export default async function PaymentsPage() {
-  const [parties, payments, duePayments] = await Promise.all([
-    getAllPartiesForPayment(),
-    getPayments(),
+  const [kisans, duePayments, traderDuePayments] = await Promise.all([
+    getParties("KISAN"),
     getDuePayments(),
+    getTraderDuePayments(),
   ]);
 
   return (
     <PaymentsPageClient
-      parties={parties}
-      payments={payments}
+      kisans={kisans.map((k) => ({ id: k.id, name: k.name }))}
       duePayments={duePayments}
+      traderDuePayments={traderDuePayments}
     />
   );
 }
